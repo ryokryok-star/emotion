@@ -106,8 +106,8 @@
     ];
 
     const ALL_EMOTIONS = [...EMOTIONS_FLAT, ...COMPOSITE_GROUPS.flatMap(group => group.emotions)];
-    const LOCAL_STORAGE_KEY = 'emotionRingLogsV23';
-    const SYNC_STATUS_KEY = 'emotionRingSyncStatusV23';
+    const LOCAL_STORAGE_KEY = 'emotionRingLogsV24';
+    const SYNC_STATUS_KEY = 'emotionRingSyncStatusV24';
 
     // 感情の輪のビジュアルコンポーネント (サイズ大・文字大)
     function EmotionWheelVisualization() {
@@ -291,7 +291,7 @@
             {activeTab === 'input' && (
               <div className="flex flex-col animate-[fadeIn_0.3s_ease-in-out]">
                 
-                {/* ９０秒タイマーボタン (感情名と同じフォント太さに変更) */}
+                {/* ９０秒タイマーボタン */}
                 <div className="mb-3 px-1">
                   <button 
                     onClick={() => setTimer(timer > 0 ? 0 : 90)}
@@ -301,7 +301,14 @@
                   >
                     <i className={`fas ${timer > 0 ? 'fa-redo' : 'fa-stopwatch'} text-base`}></i>
                     <span>
-                      {timer > 0 ? `リセット (${timer}秒)` : '９０秒タイマー（感情の波が過ぎるのを待つ）'}
+                      {timer > 0 ? (
+                        `リセット (${timer}秒)`
+                      ) : (
+                        <React.Fragment>
+                          ９０秒タイマー
+                          <span className="font-light text-sm ml-1 opacity-70">（感情の波が過ぎるのを待つ）</span>
+                        </React.Fragment>
+                      )}
                     </span>
                   </button>
                 </div>
