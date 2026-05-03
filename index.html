@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>EmotionRing</title>
+  <title>感情ラベリング</title>
   
   <!-- Tailwind CSS (デザイン用) -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -30,21 +30,60 @@
   <script type="text/babel">
     const { useState, useEffect, useRef } = React;
 
-    // FontAwesomeのクラス名に置き換えた感情データ
+    // 基本・弱い感情データ
     const EMOTION_CATEGORIES = [
-      { category: 'joy', levels: [ {id:'ecstasy', name:'恍惚', icon: 'fas fa-sun', base:'bg-yellow-400', text:'text-yellow-950'}, {id:'joy', name:'喜び', icon: 'fas fa-smile', base:'bg-yellow-300', text:'text-yellow-900'}, {id:'serenity', name:'平穏', icon: 'fas fa-star', base:'bg-yellow-100', text:'text-yellow-800'} ]},
-      { category: 'trust', levels: [ {id:'admiration', name:'敬愛', icon: 'fas fa-heart', base:'bg-lime-400', text:'text-lime-950'}, {id:'trust', name:'信頼', icon: 'fas fa-shield-alt', base:'bg-lime-300', text:'text-lime-900'}, {id:'acceptance', name:'容認', icon: 'fas fa-check-circle', base:'bg-lime-100', text:'text-lime-800'} ]},
-      { category: 'fear', levels: [ {id:'terror', name:'恐怖', icon: 'fas fa-exclamation-triangle', base:'bg-teal-400', text:'text-teal-950'}, {id:'fear', name:'恐れ', icon: 'fas fa-frown', base:'bg-teal-300', text:'text-teal-900'}, {id:'apprehension', name:'不安', icon: 'fas fa-exclamation-circle', base:'bg-teal-100', text:'text-teal-800'} ]},
-      { category: 'surprise', levels: [ {id:'amazement', name:'驚愕', icon: 'fas fa-bolt', base:'bg-cyan-400', text:'text-cyan-950'}, {id:'surprise', name:'驚き', icon: 'fas fa-eye', base:'bg-cyan-300', text:'text-cyan-900'}, {id:'distraction', name:'動揺', icon: 'fas fa-question-circle', base:'bg-cyan-100', text:'text-cyan-800'} ]},
-      { category: 'sadness', levels: [ {id:'grief', name:'悲観', icon: 'fas fa-cloud-showers-heavy', base:'bg-blue-400', text:'text-blue-950'}, {id:'sadness', name:'悲しみ', icon: 'fas fa-cloud', base:'bg-blue-300', text:'text-blue-900'}, {id:'pensiveness', name:'哀愁', icon: 'fas fa-umbrella', base:'bg-blue-100', text:'text-blue-800'} ]},
-      { category: 'disgust', levels: [ {id:'loathing', name:'憎悪', icon: 'fas fa-times-circle', base:'bg-purple-400', text:'text-purple-950'}, {id:'disgust', name:'嫌悪', icon: 'fas fa-meh', base:'bg-purple-300', text:'text-purple-900'}, {id:'boredom', name:'退屈', icon: 'fas fa-minus-circle', base:'bg-purple-100', text:'text-purple-800'} ]},
-      { category: 'anger', levels: [ {id:'rage', name:'激怒', icon: 'fas fa-fire', base:'bg-red-400', text:'text-red-950'}, {id:'anger', name:'怒り', icon: 'fas fa-stop-circle', base:'bg-red-300', text:'text-red-900'}, {id:'annoyance', name:'苛立', icon: 'fas fa-window-close', base:'bg-red-100', text:'text-red-800'} ]},
-      { category: 'anticipation', levels: [ {id:'vigilance', name:'警戒', icon: 'fas fa-search', base:'bg-orange-400', text:'text-orange-950'}, {id:'anticipation', name:'期待', icon: 'fas fa-compass', base:'bg-orange-300', text:'text-orange-900'}, {id:'interest', name:'関心', icon: 'fas fa-location-arrow', base:'bg-orange-100', text:'text-orange-800'} ]}
+      { category: 'joy', levels: [ {id:'joy', name:'喜び', icon: 'fas fa-smile', base:'bg-yellow-300', text:'text-yellow-900'}, {id:'serenity', name:'平穏', icon: 'fas fa-star', base:'bg-yellow-100', text:'text-yellow-800'} ]},
+      { category: 'trust', levels: [ {id:'trust', name:'信頼', icon: 'fas fa-shield-alt', base:'bg-lime-300', text:'text-lime-900'}, {id:'acceptance', name:'容認', icon: 'fas fa-check-circle', base:'bg-lime-100', text:'text-lime-800'} ]},
+      { category: 'fear', levels: [ {id:'fear', name:'恐れ', icon: 'fas fa-frown', base:'bg-teal-300', text:'text-teal-900'}, {id:'apprehension', name:'不安', icon: 'fas fa-exclamation-circle', base:'bg-teal-100', text:'text-teal-800'} ]},
+      { category: 'surprise', levels: [ {id:'surprise', name:'驚き', icon: 'fas fa-eye', base:'bg-cyan-300', text:'text-cyan-900'}, {id:'distraction', name:'動揺', icon: 'fas fa-question-circle', base:'bg-cyan-100', text:'text-cyan-800'} ]},
+      { category: 'sadness', levels: [ {id:'sadness', name:'悲しみ', icon: 'fas fa-cloud', base:'bg-blue-300', text:'text-blue-900'}, {id:'pensiveness', name:'哀愁', icon: 'fas fa-umbrella', base:'bg-blue-100', text:'text-blue-800'} ]},
+      { category: 'disgust', levels: [ {id:'disgust', name:'嫌悪', icon: 'fas fa-meh', base:'bg-purple-300', text:'text-purple-900'}, {id:'boredom', name:'退屈', icon: 'fas fa-minus-circle', base:'bg-purple-100', text:'text-purple-800'} ]},
+      { category: 'anger', levels: [ {id:'anger', name:'怒り', icon: 'fas fa-stop-circle', base:'bg-red-300', text:'text-red-900'}, {id:'annoyance', name:'苛立', icon: 'fas fa-window-close', base:'bg-red-100', text:'text-red-800'} ]},
+      { category: 'anticipation', levels: [ {id:'anticipation', name:'期待', icon: 'fas fa-compass', base:'bg-orange-300', text:'text-orange-900'}, {id:'interest', name:'関心', icon: 'fas fa-location-arrow', base:'bg-orange-100', text:'text-orange-800'} ]}
     ];
 
-    const ALL_EMOTIONS = EMOTION_CATEGORIES.flatMap(cat => cat.levels);
-    const LOCAL_STORAGE_KEY = 'emotionRingLogsV11';
-    const SYNC_STATUS_KEY = 'emotionRingSyncStatusV11';
+    const COMPOSITE_GROUPS = [
+      { title: '第一次混合感情（隣り合う感情の組み合わせ）', emotions: [
+        { id: 'optimism', name: '楽観', components: '期待 ＋ 喜び', icon: 'fas fa-sun', base: 'bg-orange-300', text: 'text-orange-900' },
+        { id: 'love', name: '愛', components: '喜び ＋ 信頼', icon: 'fas fa-heart', base: 'bg-pink-300', text: 'text-pink-900' },
+        { id: 'submission', name: '服従', components: '信頼 ＋ 恐れ', icon: 'fas fa-user-friends', base: 'bg-green-300', text: 'text-green-900' },
+        { id: 'awe', name: '畏敬', components: '恐れ ＋ 驚き', icon: 'fas fa-exclamation', base: 'bg-teal-300', text: 'text-teal-900' },
+        { id: 'disapproval', name: '失望', components: '驚き ＋ 悲しみ', icon: 'fas fa-thumbs-down', base: 'bg-indigo-300', text: 'text-indigo-900' },
+        { id: 'remorse', name: '後悔', components: '悲しみ ＋ 嫌悪', icon: 'fas fa-sad-tear', base: 'bg-blue-300', text: 'text-blue-900' },
+        { id: 'contempt', name: '軽蔑', components: '嫌悪 ＋ 怒り', icon: 'fas fa-eye-slash', base: 'bg-purple-300', text: 'text-purple-900' },
+        { id: 'aggressiveness', name: '攻撃', components: '怒り ＋ 期待', icon: 'fas fa-fist-raised', base: 'bg-red-300', text: 'text-red-900' }
+      ]},
+      { title: '第二次混合感情（1つ離れた感情の組み合わせ）', emotions: [
+        { id: 'hope', name: '希望', components: '期待 ＋ 信頼', icon: 'fas fa-star', base: 'bg-yellow-200', text: 'text-yellow-800' },
+        { id: 'guilt', name: '罪悪感', components: '喜び ＋ 恐れ', icon: 'fas fa-user-shield', base: 'bg-emerald-200', text: 'text-emerald-800' },
+        { id: 'curiosity', name: '好奇心', components: '信頼 ＋ 驚き', icon: 'fas fa-question', base: 'bg-cyan-200', text: 'text-cyan-800' },
+        { id: 'envy', name: '嫉妬', components: '悲しみ ＋ 怒り', icon: 'fas fa-tired', base: 'bg-indigo-200', text: 'text-indigo-800' },
+        { id: 'cynicism', name: '冷笑', components: '期待 ＋ 嫌悪', icon: 'fas fa-smirk', base: 'bg-gray-300', text: 'text-gray-800' },
+        { id: 'pride', name: '誇り', components: '怒り ＋ 喜び', icon: 'fas fa-crown', base: 'bg-rose-300', text: 'text-rose-900' },
+        { id: 'despair', name: '絶望', components: '恐れ ＋ 悲しみ', icon: 'fas fa-procedures', base: 'bg-slate-400', text: 'text-slate-900' },
+        { id: 'distrust', name: '不信', components: '驚き ＋ 嫌悪', icon: 'fas fa-user-slash', base: 'bg-stone-400', text: 'text-stone-900' }
+      ]},
+      { title: '第三次混合感情（2つ離れた感情の組み合わせ）', emotions: [
+        { id: 'anxiety_comp', name: '不安', components: '期待 ＋ 恐れ', icon: 'fas fa-wind', base: 'bg-stone-300', text: 'text-stone-800' },
+        { id: 'delight', name: '歓喜', components: '喜び ＋ 驚き', icon: 'fas fa-laugh-beam', base: 'bg-amber-300', text: 'text-amber-900' },
+        { id: 'sentimentality', name: '感傷', components: '信頼 ＋ 悲しみ', icon: 'fas fa-hand-holding-heart', base: 'bg-sky-200', text: 'text-sky-800' },
+        { id: 'shame', name: '恥', components: '恐れ ＋ 嫌悪', icon: 'fas fa-flushed', base: 'bg-fuchsia-200', text: 'text-fuchsia-800' },
+        { id: 'pessimism', name: '悲観', components: '期待 ＋ 悲しみ', icon: 'fas fa-cloud-rain', base: 'bg-slate-300', text: 'text-slate-800' },
+        { id: 'dominance', name: '支配', components: '怒り ＋ 信頼', icon: 'fas fa-chess-king', base: 'bg-red-400', text: 'text-red-950' },
+        { id: 'outrage', name: '憤慨', components: '驚き ＋ 怒り', icon: 'fas fa-angry', base: 'bg-orange-400', text: 'text-orange-950' },
+        { id: 'morbid', name: '病的', components: '喜び ＋ 嫌悪', icon: 'fas fa-virus', base: 'bg-lime-200', text: 'text-lime-900' }
+      ]},
+      { title: '対極の感情の組み合わせ（向かい合う感情の組み合わせ）', emotions: [
+        { id: 'conflict', name: '葛藤', components: '喜び ＋ 悲しみ', icon: 'fas fa-balance-scale', base: 'bg-gray-400', text: 'text-white' },
+        { id: 'ambivalence', name: '両価性', components: '信頼 ＋ 嫌悪', icon: 'fas fa-exchange-alt', base: 'bg-zinc-400', text: 'text-white' },
+        { id: 'panic', name: '恐慌', components: '恐れ ＋ 怒り', icon: 'fas fa-biohazard', base: 'bg-red-600', text: 'text-white' },
+        { id: 'confusion', name: '混乱', components: '期待 ＋ 驚き', icon: 'fas fa-sync', base: 'bg-blue-600', text: 'text-white' }
+      ]}
+    ];
+
+    const ALL_EMOTIONS = [...EMOTION_CATEGORIES.flatMap(cat => cat.levels), ...COMPOSITE_GROUPS.flatMap(group => group.emotions)];
+    const LOCAL_STORAGE_KEY = 'emotionRingLogsV12';
+    const SYNC_STATUS_KEY = 'emotionRingSyncStatusV12';
 
     function App() {
       const [activeTab, setActiveTab] = useState('input');
@@ -223,8 +262,8 @@
         <div className="min-h-screen pb-20 select-none">
           <header className="bg-white px-4 py-2 shadow-sm sticky top-0 z-30 flex items-center justify-between border-b border-gray-100">
             <h1 className="text-base font-bold text-gray-800 tracking-wider flex items-center mx-auto">
-              <i className="fas fa-smile text-blue-500 mr-2 text-xl"></i>
-              EmotionRing
+              <i className="fas fa-tag text-blue-500 mr-2 text-xl"></i>
+              感情ラベリング
             </h1>
             {hasUnsavedChanges && activeTab === 'history' && (
                <div className="absolute right-4 text-red-500 flex items-center animate-pulse">
@@ -237,25 +276,21 @@
             {activeTab === 'input' && (
               <div className="flex flex-col animate-[fadeIn_0.3s_ease-in-out]">
                 
-                <div className="grid grid-cols-3 gap-1.5 w-full bg-white p-2 rounded-xl shadow-sm border border-gray-100">
-                  <div className="text-center text-[10px] font-bold text-gray-400 mb-1">強い感情</div>
-                  <div className="text-center text-[10px] font-bold text-gray-400 mb-1">基本の感情</div>
-                  <div className="text-center text-[10px] font-bold text-gray-400 mb-1">弱い感情</div>
-
+                <div className="grid grid-cols-2 gap-x-2 gap-y-2 w-full bg-white p-2 rounded-xl shadow-sm border border-gray-100">
                   {EMOTION_CATEGORIES.map((category) => (
-                    <React.Fragment key={category.levels[0].id}>
+                    <div className="grid grid-cols-2 gap-1" key={category.category}>
                       {category.levels.map((emo) => {
                         const isSelected = selectedEmotions.has(emo.id);
                         return (
                           <button
                             key={emo.id}
                             onClick={() => toggleEmotion(emo.id)}
-                            className={`relative h-12 md:h-14 rounded-lg flex flex-col items-center justify-center transition-all duration-200
+                            className={`relative h-12 md:h-14 px-1 rounded-lg flex flex-row items-center justify-center gap-1 transition-all duration-200
                               ${isSelected ? `${emo.base} border-[2.5px] border-gray-800 ${emo.text} shadow-md scale-[1.05] z-10 opacity-100` : `${emo.base} border border-transparent ${emo.text} opacity-60 hover:opacity-80 active:scale-95`}
                             `}
                           >
-                            <i className={`${emo.icon} text-lg mb-0.5`}></i>
-                            <span className="text-[11px] md:text-xs font-bold leading-none">{emo.name}</span>
+                            <i className={`${emo.icon} text-lg`}></i>
+                            <span className="text-sm md:text-base font-bold leading-none whitespace-nowrap">{emo.name}</span>
                             {isSelected && (
                               <div className="absolute -top-1.5 -right-1.5 bg-white rounded-full p-0.5 shadow border border-gray-200 w-4 h-4 flex items-center justify-center">
                                 <i className="fas fa-check text-green-600 text-[10px]"></i>
@@ -264,7 +299,45 @@
                           </button>
                         );
                       })}
-                    </React.Fragment>
+                    </div>
+                  ))}
+                </div>
+
+                {/* 複合感情セクション */}
+                <div className="bg-white p-3 rounded-xl shadow-sm border border-gray-100 mt-3 space-y-4">
+                  {COMPOSITE_GROUPS.map(group => (
+                    <div key={group.title}>
+                      <div className="text-left text-[11px] font-bold text-gray-500 mb-2 border-b border-gray-100 pb-1">{group.title}</div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-2.5">
+                        {group.emotions.map(emo => {
+                          const isSelected = selectedEmotions.has(emo.id);
+                          return (
+                            <div key={emo.id} className="flex items-center gap-1.5">
+                              <button
+                                onClick={() => toggleEmotion(emo.id)}
+                                className={`flex-[1.4] relative h-10 px-1 rounded-lg flex flex-row items-center justify-center gap-1.5 transition-all duration-200
+                                  ${isSelected ? `${emo.base} border-[2.5px] border-gray-800 ${emo.text} shadow-md scale-[1.05] z-10 opacity-100` : `bg-gray-100 border border-gray-200 text-gray-700 hover:bg-gray-200 active:scale-95`}
+                                `}
+                              >
+                                <i className={`${emo.icon} text-lg`}></i>
+                                <span className="text-sm md:text-base font-bold leading-none whitespace-nowrap">{emo.name}</span>
+                                {isSelected && (
+                                  <div className="absolute -top-1.5 -right-1.5 bg-white rounded-full p-0.5 shadow border border-gray-200 w-3.5 h-3.5 flex items-center justify-center">
+                                    <i className="fas fa-check text-green-600 text-[8px]"></i>
+                                  </div>
+                                )}
+                              </button>
+                              
+                              <div className="text-gray-400 font-bold text-sm">=</div>
+                              
+                              <div className="flex-[1.8] text-[10px] md:text-[11px] text-gray-600 font-medium whitespace-nowrap overflow-hidden text-ellipsis">
+                                {emo.components}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
                   ))}
                 </div>
 
@@ -413,7 +486,7 @@
               <span className="text-[10px] font-bold">記録</span>
             </button>
             <button onClick={() => {setActiveTab('history'); window.scrollTo(0,0);}} className={`relative flex-1 flex flex-col items-center py-1 transition-colors ${activeTab === 'history' ? 'text-blue-600' : 'text-gray-400'}`}>
-              {hasUnsavedChanges && <div className="absolute top-1 right-[calc(50%-14px)] w-2 h-2 bg-red-500 rounded-full border border-white"></div>}
+              {hasUnsavedChanges && <div className="absolute top-1 right-[calc(50%-14px)] we-2 h-2 bg-red-500 rounded-full border border-white"></div>}
               <i className="fas fa-list text-xl mb-0.5"></i>
               <span className="text-[10px] font-bold">履歴</span>
             </button>
