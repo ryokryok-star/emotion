@@ -5,23 +5,36 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>感情ラベリング</title>
   
-  <!-- Tailwind CSS (デザイン用) -->
+  <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
   
-  <!-- FontAwesome (アイコン用) -->
+  <!-- FontAwesome -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   
   <!-- React & ReactDOM -->
   <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
   
-  <!-- Babel (ブラウザでReactを動かすため) -->
+  <!-- Babel -->
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
   <style>
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
     .hide-scrollbar::-webkit-scrollbar { display: none; }
     .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    .btn-text { font-size: 0.75rem; }
+    @media (min-width: 375px) { .btn-text { font-size: 0.8rem; } }
+    @media (min-width: 768px) { .btn-text { font-size: 0.95rem; } }
+    
+    /* 感情の性質による背景色の定義 */
+    .emotion-pos { background-color: #dcfce7; color: #14532d; border-color: #bbf7d0; } /* 緑系 */
+    .emotion-neg { background-color: #fee2e2; color: #7f1d1d; border-color: #fecaca; } /* 赤系 */
+    .emotion-neu { background-color: #f1f5f9; color: #0f172a; border-color: #e2e8f0; } /* グレー・青系 */
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
   </style>
 </head>
 <body class="bg-gray-50 text-gray-800">
@@ -30,60 +43,114 @@
   <script type="text/babel">
     const { useState, useEffect, useRef } = React;
 
-    // 基本・弱い感情データ
-    const EMOTION_CATEGORIES = [
-      { category: 'joy', levels: [ {id:'joy', name:'喜び', icon: 'fas fa-smile', base:'bg-yellow-300', text:'text-yellow-900'}, {id:'serenity', name:'平穏', icon: 'fas fa-star', base:'bg-yellow-100', text:'text-yellow-800'} ]},
-      { category: 'trust', levels: [ {id:'trust', name:'信頼', icon: 'fas fa-shield-alt', base:'bg-lime-300', text:'text-lime-900'}, {id:'acceptance', name:'容認', icon: 'fas fa-check-circle', base:'bg-lime-100', text:'text-lime-800'} ]},
-      { category: 'fear', levels: [ {id:'fear', name:'恐れ', icon: 'fas fa-frown', base:'bg-teal-300', text:'text-teal-900'}, {id:'apprehension', name:'不安', icon: 'fas fa-exclamation-circle', base:'bg-teal-100', text:'text-teal-800'} ]},
-      { category: 'surprise', levels: [ {id:'surprise', name:'驚き', icon: 'fas fa-eye', base:'bg-cyan-300', text:'text-cyan-900'}, {id:'distraction', name:'動揺', icon: 'fas fa-question-circle', base:'bg-cyan-100', text:'text-cyan-800'} ]},
-      { category: 'sadness', levels: [ {id:'sadness', name:'悲しみ', icon: 'fas fa-cloud', base:'bg-blue-300', text:'text-blue-900'}, {id:'pensiveness', name:'哀愁', icon: 'fas fa-umbrella', base:'bg-blue-100', text:'text-blue-800'} ]},
-      { category: 'disgust', levels: [ {id:'disgust', name:'嫌悪', icon: 'fas fa-meh', base:'bg-purple-300', text:'text-purple-900'}, {id:'boredom', name:'退屈', icon: 'fas fa-minus-circle', base:'bg-purple-100', text:'text-purple-800'} ]},
-      { category: 'anger', levels: [ {id:'anger', name:'怒り', icon: 'fas fa-stop-circle', base:'bg-red-300', text:'text-red-900'}, {id:'annoyance', name:'苛立', icon: 'fas fa-window-close', base:'bg-red-100', text:'text-red-800'} ]},
-      { category: 'anticipation', levels: [ {id:'anticipation', name:'期待', icon: 'fas fa-compass', base:'bg-orange-300', text:'text-orange-900'}, {id:'interest', name:'関心', icon: 'fas fa-location-arrow', base:'bg-orange-100', text:'text-orange-800'} ]}
+    // 基本感情
+    const EMOTIONS_FLAT = [
+      {id:'joy', name:'喜び', icon: 'fas fa-smile', base:'bg-yellow-300', text:'text-yellow-900'},
+      {id:'serenity', name:'平穏', icon: 'fas fa-star', base:'bg-yellow-100', text:'text-yellow-800'},
+      {id:'trust', name:'信頼', icon: 'fas fa-shield-alt', base:'bg-lime-300', text:'text-lime-900'},
+      {id:'acceptance', name:'容認', icon: 'fas fa-check-circle', base:'bg-lime-100', text:'text-lime-800'},
+      {id:'fear', name:'恐れ', icon: 'fas fa-frown', base:'bg-teal-300', text:'text-teal-900'},
+      {id:'apprehension', name:'不安', icon: 'fas fa-exclamation-circle', base:'bg-teal-100', text:'text-teal-800'},
+      {id:'surprise', name:'驚き', icon: 'fas fa-eye', base:'bg-cyan-300', text:'text-cyan-900'},
+      {id:'distraction', name:'動揺', icon: 'fas fa-question-circle', base:'bg-cyan-100', text:'text-cyan-800'},
+      {id:'sadness', name:'悲しみ', icon: 'fas fa-cloud', base:'bg-blue-300', text:'text-blue-900'},
+      {id:'pensiveness', name:'哀愁', icon: 'fas fa-umbrella', base:'bg-blue-100', text:'text-blue-800'},
+      {id:'disgust', name:'嫌悪', icon: 'fas fa-meh', base:'bg-purple-300', text:'text-purple-900'},
+      {id:'boredom', name:'退屈', icon: 'fas fa-minus-circle', base:'bg-purple-100', text:'text-purple-800'},
+      {id:'anger', name:'怒り', icon: 'fas fa-stop-circle', base:'bg-red-300', text:'text-red-900'},
+      {id:'annoyance', name:'苛立', icon: 'fas fa-window-close', base:'bg-red-100', text:'text-red-800'},
+      {id:'anticipation', name:'期待', icon: 'fas fa-compass', base:'bg-orange-300', text:'text-orange-900'},
+      {id:'interest', name:'関心', icon: 'fas fa-location-arrow', base:'bg-orange-100', text:'text-orange-800'}
     ];
 
+    // 複合感情
     const COMPOSITE_GROUPS = [
-      { title: '第一次混合感情（隣り合う感情の組み合わせ）', emotions: [
-        { id: 'optimism', name: '楽観', components: '期待 ＋ 喜び', icon: 'fas fa-sun', base: 'bg-orange-300', text: 'text-orange-900' },
-        { id: 'love', name: '愛', components: '喜び ＋ 信頼', icon: 'fas fa-heart', base: 'bg-pink-300', text: 'text-pink-900' },
-        { id: 'submission', name: '服従', components: '信頼 ＋ 恐れ', icon: 'fas fa-user-friends', base: 'bg-green-300', text: 'text-green-900' },
-        { id: 'awe', name: '畏敬', components: '恐れ ＋ 驚き', icon: 'fas fa-exclamation', base: 'bg-teal-300', text: 'text-teal-900' },
-        { id: 'disapproval', name: '失望', components: '驚き ＋ 悲しみ', icon: 'fas fa-thumbs-down', base: 'bg-indigo-300', text: 'text-indigo-900' },
-        { id: 'remorse', name: '後悔', components: '悲しみ ＋ 嫌悪', icon: 'fas fa-sad-tear', base: 'bg-blue-300', text: 'text-blue-900' },
-        { id: 'contempt', name: '軽蔑', components: '嫌悪 ＋ 怒り', icon: 'fas fa-eye-slash', base: 'bg-purple-300', text: 'text-purple-900' },
-        { id: 'aggressiveness', name: '攻撃', components: '怒り ＋ 期待', icon: 'fas fa-fist-raised', base: 'bg-red-300', text: 'text-red-900' }
+      { title: '第一次混合感情（隣接）', emotions: [
+        { id: 'optimism', name: '楽観', components: '期待＋喜び', icon: 'fas fa-sun', type: 'pos' },
+        { id: 'love', name: '愛', components: '喜び＋信頼', icon: 'fas fa-heart', type: 'pos' },
+        { id: 'submission', name: '服従', components: '信頼＋恐れ', icon: 'fas fa-user-friends', type: 'neu' },
+        { id: 'awe', name: '畏敬', components: '恐れ＋驚き', icon: 'fas fa-bolt', type: 'neu' },
+        { id: 'disapproval', name: '失望', components: '驚き＋悲しみ', icon: 'fas fa-thumbs-down', type: 'neg' },
+        { id: 'remorse', name: '後悔', components: '悲しみ＋嫌悪', icon: 'fas fa-sad-tear', type: 'neg' },
+        { id: 'contempt', name: '軽蔑', components: '嫌悪＋怒り', icon: 'fas fa-eye-slash', type: 'neg' },
+        { id: 'aggressiveness', name: '攻撃', components: '怒り＋期待', icon: 'fas fa-fist-raised', type: 'neg' }
       ]},
-      { title: '第二次混合感情（1つ離れた感情の組み合わせ）', emotions: [
-        { id: 'hope', name: '希望', components: '期待 ＋ 信頼', icon: 'fas fa-star', base: 'bg-yellow-200', text: 'text-yellow-800' },
-        { id: 'guilt', name: '罪悪感', components: '喜び ＋ 恐れ', icon: 'fas fa-user-shield', base: 'bg-emerald-200', text: 'text-emerald-800' },
-        { id: 'curiosity', name: '好奇心', components: '信頼 ＋ 驚き', icon: 'fas fa-question', base: 'bg-cyan-200', text: 'text-cyan-800' },
-        { id: 'envy', name: '嫉妬', components: '悲しみ ＋ 怒り', icon: 'fas fa-tired', base: 'bg-indigo-200', text: 'text-indigo-800' },
-        { id: 'cynicism', name: '冷笑', components: '期待 ＋ 嫌悪', icon: 'fas fa-smirk', base: 'bg-gray-300', text: 'text-gray-800' },
-        { id: 'pride', name: '誇り', components: '怒り ＋ 喜び', icon: 'fas fa-crown', base: 'bg-rose-300', text: 'text-rose-900' },
-        { id: 'despair', name: '絶望', components: '恐れ ＋ 悲しみ', icon: 'fas fa-procedures', base: 'bg-slate-400', text: 'text-slate-900' },
-        { id: 'distrust', name: '不信', components: '驚き ＋ 嫌悪', icon: 'fas fa-user-slash', base: 'bg-stone-400', text: 'text-stone-900' }
+      { title: '第二次混合感情（1つ離れた）', emotions: [
+        { id: 'hope', name: '希望', components: '期待＋信頼', icon: 'fas fa-star', type: 'pos' },
+        { id: 'guilt', name: '罪悪感', components: '喜び＋恐れ', icon: 'fas fa-user-shield', type: 'neg' },
+        { id: 'curiosity', name: '好奇心', components: '信頼＋驚き', icon: 'fas fa-search-plus', type: 'neu' },
+        { id: 'despair', name: '絶望', components: '恐れ＋悲しみ', icon: 'fas fa-procedures', type: 'neg' },
+        { id: 'distrust', name: '不信', components: '驚き＋嫌悪', icon: 'fas fa-user-slash', type: 'neg' },
+        { id: 'envy', name: '嫉妬', components: '悲しみ＋怒り', icon: 'fas fa-tired', type: 'neg' },
+        { id: 'cynicism', name: '冷笑', components: '期待＋嫌悪', icon: 'fas fa-face-grin-wink', type: 'neg' },
+        { id: 'pride', name: '誇り', components: '怒り＋喜び', icon: 'fas fa-crown', type: 'pos' }
       ]},
-      { title: '第三次混合感情（2つ離れた感情の組み合わせ）', emotions: [
-        { id: 'anxiety_comp', name: '不安', components: '期待 ＋ 恐れ', icon: 'fas fa-wind', base: 'bg-stone-300', text: 'text-stone-800' },
-        { id: 'delight', name: '歓喜', components: '喜び ＋ 驚き', icon: 'fas fa-laugh-beam', base: 'bg-amber-300', text: 'text-amber-900' },
-        { id: 'sentimentality', name: '感傷', components: '信頼 ＋ 悲しみ', icon: 'fas fa-hand-holding-heart', base: 'bg-sky-200', text: 'text-sky-800' },
-        { id: 'shame', name: '恥', components: '恐れ ＋ 嫌悪', icon: 'fas fa-flushed', base: 'bg-fuchsia-200', text: 'text-fuchsia-800' },
-        { id: 'pessimism', name: '悲観', components: '期待 ＋ 悲しみ', icon: 'fas fa-cloud-rain', base: 'bg-slate-300', text: 'text-slate-800' },
-        { id: 'dominance', name: '支配', components: '怒り ＋ 信頼', icon: 'fas fa-chess-king', base: 'bg-red-400', text: 'text-red-950' },
-        { id: 'outrage', name: '憤慨', components: '驚き ＋ 怒り', icon: 'fas fa-angry', base: 'bg-orange-400', text: 'text-orange-950' },
-        { id: 'morbid', name: '病的', components: '喜び ＋ 嫌悪', icon: 'fas fa-virus', base: 'bg-lime-200', text: 'text-lime-900' }
+      { title: '第三次混合感情（2つ離れた）', emotions: [
+        { id: 'anxiety_comp', name: '不安', components: '期待＋恐れ', icon: 'fas fa-wind', type: 'neg' },
+        { id: 'delight', name: '歓喜', components: '喜び＋驚き', icon: 'fas fa-laugh-beam', type: 'pos' },
+        { id: 'sentimentality', name: '感傷', components: '信頼＋悲しみ', icon: 'fas fa-hand-holding-heart', type: 'neu' },
+        { id: 'shame', name: '恥', components: '恐れ＋嫌悪', icon: 'fas fa-flushed', type: 'neg' },
+        { id: 'pessimism', name: '悲観', components: '期待＋悲しみ', icon: 'fas fa-cloud-rain', type: 'neg' },
+        { id: 'dominance', name: '支配', components: '怒り＋信頼', icon: 'fas fa-chess-king', type: 'neu' },
+        { id: 'outrage', name: '憤慨', components: '驚き＋怒り', icon: 'fas fa-angry', type: 'neg' },
+        { id: 'morbid', name: '病的', components: '喜び＋嫌悪', icon: 'fas fa-virus', type: 'neu' }
       ]},
-      { title: '対極の感情の組み合わせ（向かい合う感情の組み合わせ）', emotions: [
-        { id: 'conflict', name: '葛藤', components: '喜び ＋ 悲しみ', icon: 'fas fa-balance-scale', base: 'bg-gray-400', text: 'text-white' },
-        { id: 'ambivalence', name: '両価性', components: '信頼 ＋ 嫌悪', icon: 'fas fa-exchange-alt', base: 'bg-zinc-400', text: 'text-white' },
-        { id: 'panic', name: '恐慌', components: '恐れ ＋ 怒り', icon: 'fas fa-biohazard', base: 'bg-red-600', text: 'text-white' },
-        { id: 'confusion', name: '混乱', components: '期待 ＋ 驚き', icon: 'fas fa-sync', base: 'bg-blue-600', text: 'text-white' }
+      { title: '対極の感情（向かい合う）', emotions: [
+        { id: 'conflict', name: '葛藤', components: '喜び＋悲しみ', icon: 'fas fa-balance-scale', type: 'neu' },
+        { id: 'ambivalence', name: '両価性', components: '信頼＋嫌悪', icon: 'fas fa-exchange-alt', type: 'neu' },
+        { id: 'panic', name: '恐慌', components: '恐れ＋怒り', icon: 'fas fa-biohazard', type: 'neg' },
+        { id: 'confusion', name: '混乱', components: '期待＋驚き', icon: 'fas fa-sync', type: 'neu' }
       ]}
     ];
 
-    const ALL_EMOTIONS = [...EMOTION_CATEGORIES.flatMap(cat => cat.levels), ...COMPOSITE_GROUPS.flatMap(group => group.emotions)];
-    const LOCAL_STORAGE_KEY = 'emotionRingLogsV12';
-    const SYNC_STATUS_KEY = 'emotionRingSyncStatusV12';
+    const ALL_EMOTIONS = [...EMOTIONS_FLAT, ...COMPOSITE_GROUPS.flatMap(group => group.emotions)];
+    const LOCAL_STORAGE_KEY = 'emotionRingLogsV19';
+    const SYNC_STATUS_KEY = 'emotionRingSyncStatusV19';
+
+    // 感情の輪のビジュアルコンポーネント (サイズと文字を拡大)
+    function EmotionWheelVisualization() {
+      const petals = [
+        { label: '喜び', color: '#fde047', angle: 0 },
+        { label: '信頼', color: '#bef264', angle: 45 },
+        { label: '恐れ', color: '#5eead4', angle: 90 },
+        { label: '驚き', color: '#67e8f9', angle: 135 },
+        { label: '悲しみ', color: '#93c5fd', angle: 180 },
+        { label: '嫌悪', color: '#d8b4fe', angle: 225 },
+        { label: '怒り', color: '#fca5a5', angle: 270 },
+        { label: '期待', color: '#fdba74', angle: 315 },
+      ];
+
+      return (
+        <div className="flex flex-col items-center mt-10 pb-12">
+          <div className="relative w-full max-w-[320px] aspect-square">
+            <svg viewBox="0 0 200 200" className="w-full h-full drop-shadow-md">
+              {petals.map((p, i) => (
+                <g key={i} transform={`rotate(${p.angle}, 100, 100)`}>
+                  <path 
+                    d="M100,100 C100,60 120,20 100,20 C80,20 100,60 100,100" 
+                    fill={p.color} 
+                    stroke="white" 
+                    strokeWidth="1.5"
+                    opacity="0.9"
+                  />
+                  <text 
+                    x="100" y="42" 
+                    fontSize="10" 
+                    fontWeight="900" 
+                    textAnchor="middle" 
+                    fill="#111827"
+                    transform={`rotate(${-p.angle}, 100, 42)`}
+                  >
+                    {p.label}
+                  </text>
+                </g>
+              ))}
+              <circle cx="100" cy="100" r="14" fill="white" opacity="0.6" />
+            </svg>
+          </div>
+        </div>
+      );
+    }
 
     function App() {
       const [activeTab, setActiveTab] = useState('input');
@@ -97,47 +164,31 @@
       useEffect(() => {
         const savedLogs = localStorage.getItem(LOCAL_STORAGE_KEY);
         const savedExportTime = localStorage.getItem(SYNC_STATUS_KEY);
-        
         if (savedLogs) {
           try {
             const parsedLogs = JSON.parse(savedLogs);
             setLogs(parsedLogs);
             const exportTime = savedExportTime ? parseInt(savedExportTime, 10) : 0;
             setLastExportTime(exportTime);
-            if (parsedLogs.length > 0 && parsedLogs[0].timestamp > exportTime) {
-              setHasUnsavedChanges(true);
-            }
-          } catch (e) {
-            console.error("Logs parsing error", e);
-          }
+            if (parsedLogs.length > 0 && parsedLogs[0].timestamp > exportTime) setHasUnsavedChanges(true);
+          } catch (e) { console.error(e); }
         }
       }, []);
 
       const toggleEmotion = (id) => {
         const newSelection = new Set(selectedEmotions);
-        if (newSelection.has(id)) {
-          newSelection.delete(id);
-        } else {
-          newSelection.add(id);
-        }
+        if (newSelection.has(id)) newSelection.delete(id); 
+        else newSelection.add(id);
         setSelectedEmotions(newSelection);
       };
 
       const handleSave = () => {
         if (selectedEmotions.size === 0) return;
-
-        const newLog = {
-          id: Date.now().toString(),
-          timestamp: Date.now(),
-          emotions: Array.from(selectedEmotions),
-          comment: comment
-        };
-
+        const newLog = { id: Date.now().toString(), timestamp: Date.now(), emotions: Array.from(selectedEmotions), comment: comment };
         const updatedLogs = [newLog, ...logs];
         setLogs(updatedLogs);
         localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updatedLogs));
         setHasUnsavedChanges(true);
-
         setSelectedEmotions(new Set());
         setComment('');
         setActiveTab('history');
@@ -146,123 +197,71 @@
 
       const formatDate = (timestamp) => {
         const d = new Date(timestamp);
-        const mm = String(d.getMonth() + 1).padStart(2, '0');
-        const dd = String(d.getDate()).padStart(2, '0');
-        const hh = String(d.getHours()).padStart(2, '0');
-        const min = String(d.getMinutes()).padStart(2, '0');
-        return `${mm}/${dd} ${hh}:${min}`;
+        return `${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
       };
 
       const exportCSV = () => {
         if (logs.length === 0) return;
-
-        let csvContent = "ID,日時(タイムスタンプ),感情(カンマ区切り),コメント\n";
+        let csvContent = "ID,日時,感情,コメント\n";
         logs.forEach(log => {
-          const id = log.id;
-          const timestamp = log.timestamp;
-          const emotionsStr = log.emotions.join(',');
-          const safeComment = `"${(log.comment || '').replace(/"/g, '""')}"`;
-          csvContent += `${id},${timestamp},"${emotionsStr}",${safeComment}\n`;
+          csvContent += `${log.id},${log.timestamp},"${log.emotions.join(',')}", "${(log.comment || '').replace(/"/g, '""')}"\n`;
         });
-
         const bom = new Uint8Array([0xEF, 0xBB, 0xBF]);
         const blob = new Blob([bom, csvContent], { type: 'text/csv;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
-        
         const link = document.createElement("a");
-        link.setAttribute("href", url);
-        link.setAttribute("download", `EmotionRing_Data.csv`);
+        link.href = url;
+        link.download = `EmotionRing_Data.csv`;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-
         const now = Date.now();
         setLastExportTime(now);
         setHasUnsavedChanges(false);
         localStorage.setItem(SYNC_STATUS_KEY, now.toString());
       };
 
-      const handleImportClick = () => {
-        fileInputRef.current.click();
-      };
+      const handleImportClick = () => fileInputRef.current.click();
 
       const processImportFile = (e) => {
         const file = e.target.files[0];
         if (!file) return;
-
         const reader = new FileReader();
         reader.onload = (event) => {
           const csvData = event.target.result;
-          parseCSVAndMerge(csvData);
-          e.target.value = null; 
+          const rows = csvData.split('\n').slice(1);
+          const imported = rows.map(row => {
+            const parts = row.split(',');
+            if (parts.length < 3) return null;
+            return {
+              id: parts[0],
+              timestamp: parseInt(parts[1], 10),
+              emotions: parts[2].replace(/"/g, '').split(','),
+              comment: parts[3] ? parts[3].replace(/"/g, '') : ''
+            };
+          }).filter(Boolean);
+          const mergedMap = new Map();
+          [...logs, ...imported].forEach(l => mergedMap.set(l.id, l));
+          const merged = Array.from(mergedMap.values()).sort((a,b) => b.timestamp - a.timestamp);
+          setLogs(merged);
+          localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(merged));
         };
         reader.readAsText(file);
       };
 
-      const parseCSVAndMerge = (csvData) => {
-        try {
-          const rows = [];
-          let row = [];
-          let currentString = '';
-          let insideQuotes = false;
-          
-          for (let i = 0; i < csvData.length; i++) {
-            const char = csvData[i];
-            if (insideQuotes) {
-              if (char === '"') {
-                if (i + 1 < csvData.length && csvData[i + 1] === '"') {
-                  currentString += '"'; i++;
-                } else { insideQuotes = false; }
-              } else { currentString += char; }
-            } else {
-              if (char === '"') { insideQuotes = true; } 
-              else if (char === ',') { row.push(currentString); currentString = ''; } 
-              else if (char === '\n' || char === '\r') {
-                if (char === '\r' && i + 1 < csvData.length && csvData[i + 1] === '\n') { i++; }
-                row.push(currentString); rows.push(row); row = []; currentString = '';
-              } else { currentString += char; }
-            }
-          }
-          if (currentString || row.length > 0) { row.push(currentString); rows.push(row); }
-
-          const importedLogs = [];
-          for (let i = 1; i < rows.length; i++) {
-            const r = rows[i];
-            if (r.length >= 4 && r[0]) {
-              importedLogs.push({ id: r[0], timestamp: parseInt(r[1], 10), emotions: r[2] ? r[2].split(',') : [], comment: r[3] || '' });
-            }
-          }
-
-          if (importedLogs.length === 0) return;
-
-          const mergedMap = new Map();
-          [...logs, ...importedLogs].forEach(log => mergedMap.set(log.id, log));
-          const mergedLogs = Array.from(mergedMap.values()).sort((a, b) => b.timestamp - a.timestamp);
-          
-          setLogs(mergedLogs);
-          localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(mergedLogs));
-          
-          const now = Date.now();
-          setLastExportTime(now);
-          setHasUnsavedChanges(false);
-          localStorage.setItem(SYNC_STATUS_KEY, now.toString());
-        } catch (error) { console.error("Import Error:", error); }
-      };
-
-      const handleClearData = () => {
-        setLogs([]);
-        localStorage.removeItem(LOCAL_STORAGE_KEY);
-        localStorage.removeItem(SYNC_STATUS_KEY);
-        setHasUnsavedChanges(false);
-        setLastExportTime(0);
+      const getCompositeClass = (type, isSelected) => {
+        const baseClasses = { pos: 'emotion-pos', neg: 'emotion-neg', neu: 'emotion-neu' };
+        const activeBorders = { pos: 'border-green-800', neg: 'border-red-800', neu: 'border-slate-800' };
+        return isSelected 
+          ? `${baseClasses[type]} border-[2px] ${activeBorders[type]} shadow-md scale-[1.02] z-10` 
+          : `${baseClasses[type]} border border-transparent opacity-80`;
       };
 
       return (
-        <div className="min-h-screen pb-20 select-none">
-          <header className="bg-white px-4 py-2 shadow-sm sticky top-0 z-30 flex items-center justify-between border-b border-gray-100">
-            <h1 className="text-base font-bold text-gray-800 tracking-wider flex items-center mx-auto">
-              <i className="fas fa-tag text-blue-500 mr-2 text-xl"></i>
+        <div className="min-h-screen pb-24 select-none bg-gray-50">
+          <header className="bg-white px-4 py-3 shadow-sm sticky top-0 z-30 flex items-center justify-between border-b border-gray-100">
+            <h1 className="text-lg font-bold text-gray-800 tracking-wider flex items-center mx-auto">
+              <i className="fas fa-tag text-blue-500 mr-2"></i>
               感情ラベリング
             </h1>
             {hasUnsavedChanges && activeTab === 'history' && (
@@ -276,64 +275,61 @@
             {activeTab === 'input' && (
               <div className="flex flex-col animate-[fadeIn_0.3s_ease-in-out]">
                 
-                <div className="grid grid-cols-2 gap-x-2 gap-y-2 w-full bg-white p-2 rounded-xl shadow-sm border border-gray-100">
-                  {EMOTION_CATEGORIES.map((category) => (
-                    <div className="grid grid-cols-2 gap-1" key={category.category}>
-                      {category.levels.map((emo) => {
-                        const isSelected = selectedEmotions.has(emo.id);
-                        return (
-                          <button
-                            key={emo.id}
-                            onClick={() => toggleEmotion(emo.id)}
-                            className={`relative h-12 md:h-14 px-1 rounded-lg flex flex-row items-center justify-center gap-1 transition-all duration-200
-                              ${isSelected ? `${emo.base} border-[2.5px] border-gray-800 ${emo.text} shadow-md scale-[1.05] z-10 opacity-100` : `${emo.base} border border-transparent ${emo.text} opacity-60 hover:opacity-80 active:scale-95`}
-                            `}
-                          >
-                            <i className={`${emo.icon} text-lg`}></i>
-                            <span className="text-sm md:text-base font-bold leading-none whitespace-nowrap">{emo.name}</span>
-                            {isSelected && (
-                              <div className="absolute -top-1.5 -right-1.5 bg-white rounded-full p-0.5 shadow border border-gray-200 w-4 h-4 flex items-center justify-center">
-                                <i className="fas fa-check text-green-600 text-[10px]"></i>
-                              </div>
-                            )}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  ))}
+                {/* 基本・弱い感情セクション */}
+                <div className="grid grid-cols-4 gap-1 w-full bg-white p-2 rounded-xl shadow-sm border border-gray-100">
+                  {EMOTIONS_FLAT.map((emo) => {
+                    const isSelected = selectedEmotions.has(emo.id);
+                    return (
+                      <button
+                        key={emo.id}
+                        onClick={() => toggleEmotion(emo.id)}
+                        className={`relative h-11 rounded-lg flex flex-row items-center justify-center gap-1 transition-all duration-200
+                          ${isSelected ? `${emo.base} border-[2px] border-gray-800 ${emo.text} shadow-md scale-[1.05] z-10 opacity-100` : `${emo.base} border border-transparent ${emo.text} opacity-60 hover:opacity-80 active:scale-95`}
+                        `}
+                      >
+                        <i className={`${emo.icon} text-sm`}></i>
+                        <span className="btn-text font-bold leading-none whitespace-nowrap">{emo.name}</span>
+                        {isSelected && (
+                          <div className="absolute -top-1 -right-1 bg-white rounded-full w-4 h-4 flex items-center justify-center shadow-sm border border-gray-200">
+                            <i className="fas fa-check text-green-600 text-[9px]"></i>
+                          </div>
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
 
                 {/* 複合感情セクション */}
-                <div className="bg-white p-3 rounded-xl shadow-sm border border-gray-100 mt-3 space-y-4">
+                <div className="bg-white p-2 rounded-xl shadow-sm border border-gray-100 mt-3 space-y-3">
                   {COMPOSITE_GROUPS.map(group => (
                     <div key={group.title}>
-                      <div className="text-left text-[11px] font-bold text-gray-500 mb-2 border-b border-gray-100 pb-1">{group.title}</div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-2.5">
+                      <div className="text-[10px] font-bold text-gray-400 mb-2 border-b pb-0.5">{group.title}</div>
+                      <div className="grid grid-cols-2 gap-1.5">
                         {group.emotions.map(emo => {
                           const isSelected = selectedEmotions.has(emo.id);
                           return (
-                            <div key={emo.id} className="flex items-center gap-1.5">
-                              <button
-                                onClick={() => toggleEmotion(emo.id)}
-                                className={`flex-[1.4] relative h-10 px-1 rounded-lg flex flex-row items-center justify-center gap-1.5 transition-all duration-200
-                                  ${isSelected ? `${emo.base} border-[2.5px] border-gray-800 ${emo.text} shadow-md scale-[1.05] z-10 opacity-100` : `bg-gray-100 border border-gray-200 text-gray-700 hover:bg-gray-200 active:scale-95`}
-                                `}
-                              >
-                                <i className={`${emo.icon} text-lg`}></i>
-                                <span className="text-sm md:text-base font-bold leading-none whitespace-nowrap">{emo.name}</span>
-                                {isSelected && (
-                                  <div className="absolute -top-1.5 -right-1.5 bg-white rounded-full p-0.5 shadow border border-gray-200 w-3.5 h-3.5 flex items-center justify-center">
-                                    <i className="fas fa-check text-green-600 text-[8px]"></i>
-                                  </div>
-                                )}
-                              </button>
-                              
-                              <div className="text-gray-400 font-bold text-sm">=</div>
-                              
-                              <div className="flex-[1.8] text-[10px] md:text-[11px] text-gray-600 font-medium whitespace-nowrap overflow-hidden text-ellipsis">
-                                {emo.components}
+                            <button
+                              key={emo.id}
+                              onClick={() => toggleEmotion(emo.id)}
+                              className={`w-full relative py-1.5 px-2 rounded-lg flex flex-row items-center justify-start gap-1.5 transition-all duration-200
+                                ${getCompositeClass(emo.type, isSelected)}
+                              `}
+                            >
+                              <i className={`${emo.icon} text-base`}></i>
+                              <div className="flex flex-col items-start leading-tight">
+                                <div className="flex items-center gap-1">
+                                  <span className="btn-text font-bold whitespace-nowrap">{emo.name}</span>
+                                  <span className="text-[8px] font-bold opacity-60 whitespace-nowrap">
+                                    = {emo.components}
+                                  </span>
+                                </div>
                               </div>
-                            </div>
+                              {isSelected && (
+                                <div className="absolute -top-1 -right-1 bg-white rounded-full w-3.5 h-3.5 flex items-center justify-center shadow-sm border border-gray-200">
+                                  <i className="fas fa-check text-green-600 text-[8px]"></i>
+                                </div>
+                              )}
+                            </button>
                           );
                         })}
                       </div>
@@ -341,162 +337,66 @@
                   ))}
                 </div>
 
-                <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 mt-4 mb-6 flex flex-col gap-3">
-                  <h3 className="text-sm font-bold text-gray-600 flex items-center">
-                    <i className="fas fa-check-circle text-blue-500 mr-1.5"></i>
-                    選択した感情 ({selectedEmotions.size}個)
-                  </h3>
-                  
-                  <div className="flex flex-wrap gap-1.5 min-h-[30px]">
-                    {selectedEmotions.size === 0 ? (
-                      <p className="text-xs text-gray-400">まだ選択されていません</p>
-                    ) : (
-                      Array.from(selectedEmotions).map(id => {
-                        const emo = ALL_EMOTIONS.find(e => e.id === id);
-                        if(!emo) return null;
-                        return (
-                          <span key={id} className={`flex items-center px-2 py-1 text-[11px] rounded-full font-bold ${emo.base} ${emo.text}`}>
-                            <i className={`${emo.icon} mr-1 text-[10px]`}></i>
-                            {emo.name}
-                          </span>
-                        );
-                      })
-                    )}
+                {/* フォーム */}
+                <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 mt-4 flex flex-col gap-3">
+                  <h3 className="text-sm font-bold text-gray-600 flex items-center"><i className="fas fa-check-circle text-blue-500 mr-1.5"></i>選択中 ({selectedEmotions.size})</h3>
+                  <div className="flex flex-wrap gap-1">
+                    {Array.from(selectedEmotions).map(id => {
+                      const emo = ALL_EMOTIONS.find(e => e.id === id);
+                      const bgClass = emo.base || (emo.type === 'pos' ? 'bg-green-100 text-green-800' : emo.type === 'neg' ? 'bg-red-100 text-red-800' : 'bg-slate-100 text-slate-800');
+                      return emo ? <span key={id} className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${bgClass}`}>{emo.name}</span> : null;
+                    })}
                   </div>
-
-                  <div className="flex items-start gap-2 bg-gray-50 p-2.5 rounded-lg border border-gray-100 mt-2">
-                    <i className="fas fa-comment-alt text-gray-400 mt-1"></i>
-                    <textarea
-                      value={comment}
-                      onChange={(e) => setComment(e.target.value)}
-                      placeholder="今、どんなことがありましたか？（任意）"
-                      className="flex-1 bg-transparent border-none focus:outline-none text-sm p-0 text-gray-700 placeholder-gray-400 resize-none h-16"
-                    ></textarea>
-                  </div>
-
-                  <button
-                    onClick={handleSave}
-                    disabled={selectedEmotions.size === 0}
-                    className={`w-full py-3.5 mt-2 rounded-lg font-bold text-base flex items-center justify-center transition-all shadow-sm
-                      ${selectedEmotions.size > 0 ? 'bg-blue-600 text-white hover:bg-blue-700 active:scale-95' : 'bg-gray-200 text-gray-400 cursor-not-allowed shadow-none'}
-                    `}
-                  >
-                    <i className="fas fa-check mr-2"></i>
-                    この感情を記録に残す
-                  </button>
+                  <textarea value={comment} onChange={(e) => setComment(e.target.value)} placeholder="メモを残す..." className="w-full bg-gray-50 p-2 text-sm rounded-lg border border-gray-100 h-16 focus:outline-none focus:ring-1 focus:ring-blue-200"></textarea>
+                  <button onClick={handleSave} disabled={selectedEmotions.size === 0} className={`w-full py-3 rounded-lg font-bold flex items-center justify-center ${selectedEmotions.size > 0 ? 'bg-blue-600 text-white shadow-lg active:scale-95' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}><i className="fas fa-save mr-2"></i>保存</button>
                 </div>
+
+                {/* 感情の輪ビジュアルリファレンス */}
+                <EmotionWheelVisualization />
 
               </div>
             )}
 
             {activeTab === 'history' && (
-              <div className="flex flex-col min-h-[calc(100vh-120px)] animate-[fadeIn_0.3s_ease-in-out]">
-                <div className="flex justify-between items-center mb-3 px-1">
-                  <h2 className="text-base font-bold text-gray-700 flex items-center">
-                    <i className="fas fa-list mr-2 text-gray-500"></i>
-                    タイムライン
-                  </h2>
-                  <span className="text-xs bg-blue-100 text-blue-700 font-bold px-2.5 py-1 rounded-full">{logs.length}件</span>
+              <div className="flex flex-col animate-[fadeIn_0.3s_ease-in-out] space-y-2">
+                <div className="flex justify-between items-center px-1">
+                  <h2 className="text-sm font-bold text-gray-500">タイムライン ({logs.length})</h2>
                 </div>
-                
-                <div className="flex-1">
-                  {logs.length === 0 ? (
-                    <div className="text-center py-16 bg-white rounded-xl shadow-sm border border-gray-200">
-                      <div className="bg-gray-50 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <i className="fas fa-list text-gray-300 text-3xl"></i>
+                {logs.length === 0 ? <div className="text-center py-20 bg-white rounded-xl border italic text-gray-300">記録がありません</div> : 
+                  logs.map(log => {
+                    const isNew = log.timestamp > lastExportTime;
+                    return (
+                      <div key={log.id} className={`bg-white p-3 rounded-xl border flex flex-col gap-2 ${isNew ? 'border-red-200 shadow-sm' : 'border-gray-100'}`}>
+                        <div className="flex justify-between items-center"><span className="text-[10px] text-gray-400">{formatDate(log.timestamp)}</span>{isNew && <span className="text-[8px] bg-red-100 text-red-500 px-1 rounded font-bold">NEW</span>}</div>
+                        <div className="flex flex-wrap gap-1">
+                          {log.emotions.map(emoId => {
+                            const emo = ALL_EMOTIONS.find(e => e.id === emoId);
+                            const bgClass = emo.base || (emo.type === 'pos' ? 'bg-green-100 text-green-800' : emo.type === 'neg' ? 'bg-red-100 text-red-800' : 'bg-slate-100 text-slate-800');
+                            return emo ? <span key={emoId} className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${bgClass}`}>{emo.name}</span> : null;
+                          })}
+                        </div>
+                        {log.comment && <div className="text-xs text-gray-600 bg-gray-50 p-2 rounded leading-snug">{log.comment}</div>}
                       </div>
-                      <p className="text-base text-gray-500 font-medium">まだ記録がありません</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-2.5">
-                      {logs.map(log => {
-                        const isNew = log.timestamp > lastExportTime;
-                        return (
-                          <div key={log.id} className={`bg-white p-3 rounded-xl shadow-sm border flex flex-col gap-2 transition-all ${isNew ? 'border-red-200 shadow-red-100' : 'border-gray-200'}`}>
-                            <div className="flex flex-col gap-1.5">
-                               <div className="flex justify-between items-center">
-                                 <span className="text-[11px] text-gray-400 font-medium flex items-center">
-                                  {formatDate(log.timestamp)}
-                                 </span>
-                                 {isNew && <span className="text-[9px] bg-red-100 text-red-600 font-bold px-1.5 py-0.5 rounded">未保存(CSV)</span>}
-                               </div>
-                              <div className="flex flex-wrap gap-1">
-                                {log.emotions.map(emoId => {
-                                  const emo = ALL_EMOTIONS.find(e => e.id === emoId);
-                                  if(!emo) return null;
-                                  return (
-                                    <span key={emoId} className={`flex items-center px-1.5 py-0.5 text-[10px] rounded font-bold ${emo.base} ${emo.text}`}>
-                                      <i className={`${emo.icon} mr-1 text-[8px]`}></i>
-                                      {emo.name}
-                                    </span>
-                                  );
-                                })}
-                              </div>
-                            </div>
-                            {log.comment && (
-                              <div className="text-xs text-gray-700 bg-gray-50 p-2.5 rounded-lg leading-relaxed border border-gray-100 break-all">
-                                {log.comment}
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
+                    );
+                  })
+                }
+                <div className="pt-10 flex flex-col gap-2">
+                  <button onClick={exportCSV} className="w-full py-3 bg-gray-800 text-white rounded-lg text-sm font-bold shadow-sm"><i className="fas fa-download mr-2"></i>CSVエクスポート</button>
+                  <button onClick={handleImportClick} className="w-full py-3 bg-white border text-gray-600 rounded-lg text-sm font-bold"><i className="fas fa-upload mr-2"></i>CSVインポート</button>
+                  <input type="file" ref={fileInputRef} onChange={processImportFile} accept=".csv" className="hidden" />
                 </div>
-
-                <div className={`mt-10 mb-6 bg-white p-4 rounded-xl shadow-sm border ${hasUnsavedChanges ? 'border-red-300 bg-red-50' : 'border-gray-200'}`}>
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-sm font-bold text-gray-700 flex items-center">
-                      <i className="fas fa-file-alt text-gray-500 mr-1.5"></i>
-                      ファイル (CSV) 管理
-                    </h3>
-                    {hasUnsavedChanges ? (
-                      <span className="text-[10px] font-bold text-red-600 flex items-center"><i className="fas fa-exclamation-circle mr-1"></i> バックアップ推奨</span>
-                    ) : (
-                      <span className="text-[10px] font-bold text-green-600 flex items-center"><i className="fas fa-check-circle mr-1"></i> 保存済み</span>
-                    )}
-                  </div>
-                  
-                  <div className="grid grid-cols-2 gap-2 mb-4">
-                    <button onClick={exportCSV} className={`flex items-center justify-center py-3 rounded-lg text-xs font-bold transition-colors active:scale-95 shadow-sm ${hasUnsavedChanges ? 'bg-red-500 text-white hover:bg-red-600' : 'bg-gray-800 text-white hover:bg-gray-700'}`}>
-                      <i className="fas fa-download mr-1.5"></i>CSVに書き出す
-                    </button>
-                    
-                    <button onClick={handleImportClick} className="flex items-center justify-center py-3 bg-white border border-gray-300 text-gray-700 rounded-lg text-xs font-bold transition-colors active:scale-95 hover:bg-gray-50 shadow-sm">
-                      <i className="fas fa-upload mr-1.5"></i>読み込んで復元
-                    </button>
-                    <input type="file" ref={fileInputRef} onChange={processImportFile} accept=".csv" style={{ display: 'none' }} />
-                  </div>
-
-                  <div className="pt-3 border-t border-gray-200 mt-2">
-                     <button onClick={handleClearData} className="w-full flex items-center justify-center py-2 text-red-400 hover:text-red-600 rounded text-xs font-bold transition-colors">
-                      <i className="fas fa-trash-alt mr-1"></i>アプリ内のデータをすべて削除
-                    </button>
-                  </div>
-                </div>
-
               </div>
             )}
           </main>
 
-          <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 flex justify-around pb-[env(safe-area-inset-bottom)] pt-1.5 z-30">
-            <button onClick={() => {setActiveTab('input'); window.scrollTo(0,0);}} className={`flex-1 flex flex-col items-center py-1 transition-colors ${activeTab === 'input' ? 'text-blue-600' : 'text-gray-400'}`}>
-              <i className="fas fa-home text-xl mb-0.5"></i>
-              <span className="text-[10px] font-bold">記録</span>
-            </button>
-            <button onClick={() => {setActiveTab('history'); window.scrollTo(0,0);}} className={`relative flex-1 flex flex-col items-center py-1 transition-colors ${activeTab === 'history' ? 'text-blue-600' : 'text-gray-400'}`}>
-              {hasUnsavedChanges && <div className="absolute top-1 right-[calc(50%-14px)] we-2 h-2 bg-red-500 rounded-full border border-white"></div>}
-              <i className="fas fa-list text-xl mb-0.5"></i>
-              <span className="text-[10px] font-bold">履歴</span>
-            </button>
+          <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 flex justify-around pb-[env(safe-area-inset-bottom)] pt-2 z-30 shadow-lg">
+            <button onClick={() => setActiveTab('input')} className={`flex-1 flex flex-col items-center pb-2 ${activeTab === 'input' ? 'text-blue-600' : 'text-gray-400'}`}><i className="fas fa-home text-lg"></i><span className="text-[10px] font-bold">記録</span></button>
+            <button onClick={() => setActiveTab('history')} className={`relative flex-1 flex flex-col items-center pb-2 ${activeTab === 'history' ? 'text-blue-600' : 'text-gray-400'}`}>{hasUnsavedChanges && <div className="absolute top-0 right-[calc(50%-10px)] w-2 h-2 bg-red-500 rounded-full border border-white"></div>}<i className="fas fa-list text-lg"></i><span className="text-[10px] font-bold">履歴</span></button>
           </nav>
         </div>
       );
     }
-
-    const root = ReactDOM.createRoot(document.getElementById('root'));
-    root.render(<App />);
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
   </script>
 </body>
 </html>
